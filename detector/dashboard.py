@@ -152,8 +152,12 @@ def update_state(banned_ips: dict, global_rps: float, top_ips: list,
         _state["std"] = std
 
 
+class _ReusableTCPServer(HTTPServer):
+    allow_reuse_address = True
+
+
 def start_dashboard(port: int):
-    server = HTTPServer(("", port), _Handler)
+    server = _ReusableTCPServer(("", port), _Handler)
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
     print(f"[dashboard] Live metrics at http://0.0.0.0:{port}", flush=True)
