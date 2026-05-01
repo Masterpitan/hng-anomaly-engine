@@ -6,6 +6,8 @@ services:
     restart: always
     expose:
       - "80"
+    volumes:
+      - HNG-nginx-logs:/var/log/nginx:ro
 
   nginx-proxy:
     image: nginx:latest
@@ -16,13 +18,21 @@ services:
       - HNG-nginx-logs:/var/log/nginx
     depends_on:
       - nextcloud
+    restart: always
 
   detector:
     build: ./detector
-    network_mode: "host" 
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
     volumes:
       - HNG-nginx-logs:/var/log/nginx:ro
+      - ./detector/config.yaml:/app/config.yaml:ro
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
     restart: always
+    depends_on:
+      - nginx-proxy
 
 volumes:
   HNG-nginx-logs:

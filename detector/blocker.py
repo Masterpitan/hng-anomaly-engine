@@ -1,40 +1,82 @@
-import time
+import re
 import subprocess
+import time
 
-AUDIT_LOG = "audit.log"
+_IP_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 
-def block_ip(ip, rate, baseline_mean):
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    condition = "Z-Score Anomaly"
-    duration = "10m"
+# ip -> {"banned_at": float, "ban_index": int, "duration_min": int}
+_ban_state: dict = {}
 
-    # Required Format: [timestamp] ACTION ip | condition | rate | baseline | duration
-    log_entry = f"[{timestamp}] BAN {ip} | {condition} | {rate} RPM | Mean: {baseline_mean:.1f} | {duration}\n"
+AUDIT_LOG = "/app/audit.log"
 
-    # 1. Write to Audit Log
-    with open(AUDIT_LOG, "a") as f:
-        f.write(log_entry)
 
-    print(f"[AUDIT] {log_entry.strip()}", flush=True)
+def _valid_ip(ip: str) -> bool:
+    return bool(_IP_RE.match(ip))
 
-    # 2. Check if rule exists before executing to prevent duplicate errors
+
+def _write_audit(entry: str):
+    ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    line = f"[{ts}] {entry}\n"
     try:
-        check_cmd = ["sudo", "iptables", "-C", "INPUT", "-s", ip, "-j", "DROP"]
-        res = subprocess.run(check_cmd, capture_output=True, text=True)
-        
-        # If return code is not 0, the rule does not exist
-        if res.returncode != 0:
-            subprocess.run(["sudo", "iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"], check=True)
-            print(f"[*] IPTables rule added for {ip}")
-        else:
-            print(f"[*] IPTables rule already exists for {ip}")
-            
+        with open(AUDIT_LOG, "a") as f:
+            f.write(line)
     except Exception as e:
-        print(f"[!] Firewall Error: {e}")
+        print(f"[audit] write error: {e}", flush=True)
+    print(f"[AUDIT] {line.strip()}", flush=True)
 
-def unblock_ip(ip):
+
+def _iptables(args: list):
     try:
-        subprocess.run(["sudo", "iptables", "-D", "INPUT", "-s", ip, "-j", "DROP"], check=True)
-        print(f"[*] IP {ip} has been released.")
-    except Exception as e:
-        print(f"[!] Unblock Error: {e}")
+        subprocess.run(["/sbin/iptables"] + args, check=True,
+                       capture_output=True, text=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"[blocker] iptables error: {e.stderr.strip()}", flush=True)
+        return False
+
+
+def block_ip(ip: str, rate: int, mean: float, condition: str,
+             duration_min: int, ban_index: int):
+    if not _valid_ip(ip):
+        print(f"[blocker] Invalid IP skipped: {ip}", flush=True)
+        return
+
+    # Check if rule already exists
+    result = subprocess.run(
+        ["/sbin/iptables", "-C", "INPUT", "-s", ip, "-j", "DROP"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        _iptables(["-A", "INPUT", "-s", ip, "-j", "DROP"])
+
+    dur_label = "permanent" if duration_min == -1 else f"{duration_min}m"
+    _ban_state[ip] = {
+        "banned_at": time.time(),
+        "ban_index": ban_index,
+        "duration_min": duration_min,
+    }
+    _write_audit(
+        f"BAN {ip} | {condition} | rate={rate} | baseline_mean={mean:.2f} | duration={dur_label}"
+    )
+
+
+def unblock_ip(ip: str, condition: str, rate: int, mean: float, duration_min: int):
+    if not _valid_ip(ip):
+        return
+    _iptables(["-D", "INPUT", "-s", ip, "-j", "DROP"])
+    dur_label = "permanent" if duration_min == -1 else f"{duration_min}m"
+    _write_audit(
+        f"UNBAN {ip} | {condition} | rate={rate} | baseline_mean={mean:.2f} | prev_duration={dur_label}"
+    )
+    _ban_state.pop(ip, None)
+
+
+def write_baseline_audit(mean: float, std: float, data_points: int, source: str):
+    _write_audit(
+        f"BASELINE_RECALC | mean={mean:.4f} | std={std:.4f} | "
+        f"data_points={data_points} | source={source}"
+    )
+
+
+def get_ban_state() -> dict:
+    return _ban_state

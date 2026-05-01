@@ -1,16 +1,16 @@
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Prevent Python from buffering logs (makes logs appear instantly)
 ENV PYTHONUNBUFFERED=1
 
-# Install the missing Python libraries directly
-RUN pip install --no-cache-dir requests numpy
+# iptables needed for blocking
+RUN apt-get update && apt-get install -y --no-install-recommends iptables \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy all scripts into the container
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-# Run the brain of the operation
 CMD ["python", "main.py"]

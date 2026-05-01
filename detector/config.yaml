@@ -1,0 +1,33 @@
+log_path: /var/log/nginx/hng-access.log
+audit_log: /app/audit.log
+dashboard_port: 8000
+
+detection:
+  z_score_threshold: 3.0
+  rate_multiplier_threshold: 5.0
+  error_rate_multiplier: 3.0
+  ip_window_seconds: 60
+  global_window_seconds: 60
+
+baseline:
+  history_minutes: 30
+  recalculation_interval_seconds: 60
+  min_std: 1.0
+  min_mean: 1.0
+  min_data_points: 2
+  hourly_min_data_points: 10
+
+ban:
+  backoff_schedule_minutes:
+    - 10
+    - 30
+    - 120
+    - -1  # -1 means permanent
+
+whitelist:
+  - "127.0.0.1"
+  - "13.221.5.54"
+  - "102.89.76.141"
+
+slack:
+  webhook_env_var: SLACK_WEBHOOK_URL
