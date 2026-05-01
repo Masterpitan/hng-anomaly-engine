@@ -1,0 +1,24 @@
+102.216.11.5 - - [01/May/2026 13:46:42] code 404, message File not found
+102.216.11.5 - - [01/May/2026 13:46:42] "GET /audit.log HTTP/1.1" 404 -
+102.216.11.5 - - [01/May/2026 13:46:42] code 404, message File not found
+102.216.11.5 - - [01/May/2026 13:46:42] "GET /favicon.ico HTTP/1.1" 404 -
+102.216.11.5 - - [01/May/2026 13:46:47] code 404, message File not found
+102.216.11.5 - - [01/May/2026 13:46:47] "GET /audit.log HTTP/1.1" 404 -
+127.0.0.1 - - [01/May/2026 13:50:36] code 404, message File not found
+127.0.0.1 - - [01/May/2026 13:50:36] "HEAD /audit.log HTTP/1.1" 404 -
+102.216.11.5 - - [01/May/2026 13:51:55] code 404, message File not found
+102.216.11.5 - - [01/May/2026 13:51:55] "GET /audit.log HTTP/1.1" 404 -
+102.216.11.5 - - [01/May/2026 13:51:57] code 404, message File not found
+102.216.11.5 - - [01/May/2026 13:51:57] "GET /audit.log HTTP/1.1" 404 -
+102.216.11.5 - - [01/May/2026 13:51:58] code 404, message File not found
+102.216.11.5 - - [01/May/2026 13:51:58] "GET /audit.log HTTP/1.1" 404 -
+102.216.11.5 - - [01/May/2026 13:52:06] "GET / HTTP/1.1" 200 -
+102.216.11.5 - - [01/May/2026 13:52:12] "GET /baseline.py HTTP/1.1" 200 -
+102.216.11.5 - - [01/May/2026 13:52:21] "GET /notifier.py HTTP/1.1" 200 -
+102.216.11.5 - - [01/May/2026 13:52:28] "GET /nohup.out HTTP/1.1" 200 -
+102.216.11.5 - - [01/May/2026 13:52:36] "GET /Dockerfile HTTP/1.1" 200 -
+102.216.11.5 - - [01/May/2026 13:52:39] "GET /main.py HTTP/1.1" 200 -
+102.216.11.5 - - [01/May/2026 13:53:07] "GET /nohup.out HTTP/1.1" 200 -
+127.0.0.1 - - [01/May/2026 13:53:32] code 404, message File not found
+127.0.0.1 - - [01/May/2026 13:53:32] "HEAD /audit.log HTTP/1.1" 404 -
+102.216.11.5 - - [01/May/2026 15:25:24] "GET / HTTP/1.1" 200 -

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  nextcloud:
+    image: kefaslungu/hng-nextcloud
+    restart: always
+    expose:
+      - "80"
+
+  nginx-proxy:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - HNG-nginx-logs:/var/log/nginx
+    depends_on:
+      - nextcloud
+
+  detector:
+    build: ./detector
+    network_mode: "host" 
+    volumes:
+      - HNG-nginx-logs:/var/log/nginx:ro
+    restart: always
+
+volumes:
+  HNG-nginx-logs:
