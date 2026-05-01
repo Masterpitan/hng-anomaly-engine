@@ -1,0 +1,15 @@
+# Python cache and environment files
+__pycache__/
+*.pyc
+.env
+env/
+venv/
+
+# System and application logs
+audit.log
+nohup.out
+*.log
+
+# Local configuration files
+config.json
+config.py
