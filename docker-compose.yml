@@ -6,6 +6,8 @@ services:
       - "80"
     volumes:
       - HNG-nginx-logs:/var/log/nginx:ro
+    networks:
+      - hng-net
 
   nginx-proxy:
     image: nginx:latest
@@ -17,6 +19,8 @@ services:
     depends_on:
       - nextcloud
     restart: always
+    networks:
+      - hng-net
 
   detector:
     build: ./detector
@@ -34,3 +38,7 @@ services:
 
 volumes:
   HNG-nginx-logs:
+
+networks:
+  hng-net:
+    driver: bridge

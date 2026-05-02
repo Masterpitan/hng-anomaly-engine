@@ -41,6 +41,7 @@ def main():
     print("[main] HNG Anomaly Engine started.", flush=True)
     print(f"[main] Monitoring: {log_path}", flush=True)
     print(f"[main] Whitelist: {whitelist}", flush=True)
+    print(f"[main] Warmup period: {cfg['detection']['warmup_seconds']}s — no bans will fire until baseline is established.", flush=True)
 
     for entry in parse_logs(log_path):
         ip = entry.get("source_ip", "")

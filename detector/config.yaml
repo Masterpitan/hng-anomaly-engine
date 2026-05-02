@@ -3,19 +3,32 @@ audit_log: /app/audit.log
 dashboard_port: 8000
 
 detection:
-  z_score_threshold: 3.0
-  rate_multiplier_threshold: 5.0
+  # How far above baseline in standard deviations before flagging
+  z_score_threshold: 4.0
+  # Rate must be this many times the baseline mean to trigger
+  rate_multiplier_threshold: 10.0
+  # Error rate multiplier for tightening thresholds
   error_rate_multiplier: 3.0
+  # Sliding window sizes
   ip_window_seconds: 60
   global_window_seconds: 60
+  # Nextcloud loads 30-60 assets per page, so 200 = ~3-4 full page loads/min minimum
+  min_requests_to_ban: 200
+  # IP must be anomalous this many consecutive checks before a ban is issued
+  # Prevents single traffic bursts (e.g. page load) from triggering a ban
+  confirm_strikes: 3
+  # No bans at all until this many seconds of real traffic have been observed
+  warmup_seconds: 600
 
 baseline:
   history_minutes: 30
   recalculation_interval_seconds: 60
-  min_std: 1.0
-  min_mean: 1.0
-  min_data_points: 2
-  hourly_min_data_points: 10
+  # High floors so a cold baseline never triggers false bans
+  min_std: 10.0
+  min_mean: 20.0
+  # Must have at least this many per-second data points before baseline is trusted
+  min_data_points: 120
+  hourly_min_data_points: 120
 
 ban:
   backoff_schedule_minutes:
@@ -28,6 +41,7 @@ whitelist:
   - "127.0.0.1"
   - "13.221.5.54"
   - "102.89.76.141"
+  - "102.216.11.5"
 
 slack:
   webhook_env_var: SLACK_WEBHOOK_URL

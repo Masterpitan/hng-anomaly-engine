@@ -27,6 +27,7 @@ class TrafficBaseline:
         self.std = float(cfg["baseline"]["min_std"])
         self.error_mean = 1.0
         self.error_std = 1.0
+        self._warmed_up = False
 
         self._last_recalc = time.time()
         self._current_second = int(time.time())
@@ -73,6 +74,7 @@ class TrafficBaseline:
 
         self.mean = max(float(np.mean(data)), self.min_mean)
         self.std = max(float(np.std(data)), self.min_std)
+        self._warmed_up = True
 
         if len(self._error_window) >= self.min_points:
             edata = list(self._error_window)

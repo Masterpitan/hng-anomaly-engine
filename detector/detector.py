@@ -5,8 +5,9 @@ from collections import deque, defaultdict
 class AnomalyDetector:
     """
     Tracks per-IP and global request rates using deque-based sliding windows.
-    Detects anomalies via z-score > threshold OR rate > 5x baseline mean.
-    Tightens thresholds for IPs with high error rates.
+    Detects anomalies via z-score > threshold OR rate > N x baseline mean.
+    Requires confirm_strikes consecutive anomaly checks before issuing a ban,
+    so a single page-load burst never triggers a false positive.
     """
 
     def __init__(self, cfg):
@@ -15,6 +16,10 @@ class AnomalyDetector:
         self.z_threshold = cfg["detection"]["z_score_threshold"]
         self.rate_multiplier = cfg["detection"]["rate_multiplier_threshold"]
         self.error_multiplier = cfg["detection"]["error_rate_multiplier"]
+        self.min_requests_to_ban = cfg["detection"]["min_requests_to_ban"]
+        self.confirm_strikes = cfg["detection"]["confirm_strikes"]
+        self.warmup_seconds = cfg["detection"]["warmup_seconds"]
+        self._start_time = time.time()
 
         # deque of timestamps per IP for the sliding window
         self._ip_windows: dict[str, deque] = defaultdict(deque)
@@ -22,26 +27,25 @@ class AnomalyDetector:
         self._global_window: deque = deque()
         # per-IP error timestamps
         self._ip_error_windows: dict[str, deque] = defaultdict(deque)
+        # consecutive anomaly strike counter per IP — resets when IP calms down
+        self._strikes: dict[str, int] = defaultdict(int)
 
     def record(self, ip: str, is_error: bool):
         now = time.time()
         cutoff_ip = now - self.ip_window_secs
         cutoff_global = now - self.global_window_secs
 
-        # Per-IP window
         dq = self._ip_windows[ip]
         dq.append(now)
         while dq and dq[0] < cutoff_ip:
             dq.popleft()
 
-        # Per-IP error window
         if is_error:
             edq = self._ip_error_windows[ip]
             edq.append(now)
             while edq and edq[0] < cutoff_ip:
                 edq.popleft()
 
-        # Global window
         self._global_window.append(now)
         while self._global_window and self._global_window[0] < cutoff_global:
             self._global_window.popleft()
@@ -84,23 +88,58 @@ class AnomalyDetector:
     def check_ip(self, ip: str, mean: float, std: float,
                  error_mean: float, error_std: float) -> tuple[bool, str]:
         """
-        Returns (is_anomalous, condition_string).
-        Tightens z_threshold if the IP has an error surge.
+        Returns (should_ban, condition_string).
+
+        An IP is only banned after confirm_strikes consecutive anomaly detections.
+        If the IP calms down between checks, the strike counter resets to zero.
+        This prevents page-load bursts and brief spikes from causing false bans.
         """
+        # No bans during warmup — baseline hasn't learned real traffic yet
+        if time.time() - self._start_time < self.warmup_seconds:
+            return False, ""
+
         rate = self.ip_rate(ip)
+
+        # Not enough requests to be statistically meaningful
+        if rate < self.min_requests_to_ban:
+            # IP has calmed down — reset its strike counter
+            self._strikes[ip] = 0
+            return False, ""
+
         err_rate = self.ip_error_rate(ip)
 
-        # Error surge: tighten threshold
+        # Tighten z threshold if this IP has an error surge
         effective_z = self.z_threshold
         if error_mean > 0 and err_rate >= self.error_multiplier * error_mean:
-            effective_z = max(1.5, self.z_threshold - 1.0)
+            effective_z = max(2.0, self.z_threshold - 1.0)
 
         z = (rate - mean) / std if std > 0 else 0.0
 
+        # Determine if this check is anomalous
+        anomalous = False
+        condition = ""
         if z > effective_z:
-            return True, f"z_score={z:.2f} > {effective_z}"
-        if mean > 0 and rate > self.rate_multiplier * mean:
-            return True, f"rate={rate} > {self.rate_multiplier}x mean={mean:.1f}"
+            anomalous = True
+            condition = f"z_score={z:.2f} > {effective_z}"
+        elif mean > 0 and rate > self.rate_multiplier * mean:
+            anomalous = True
+            condition = f"rate={rate} > {self.rate_multiplier}x mean={mean:.1f}"
+
+        if anomalous:
+            self._strikes[ip] += 1
+            print(
+                f"[detector] STRIKE {self._strikes[ip]}/{self.confirm_strikes} "
+                f"for {ip} | {condition}",
+                flush=True,
+            )
+            if self._strikes[ip] >= self.confirm_strikes:
+                # Confirmed — reset strikes and signal ban
+                self._strikes[ip] = 0
+                return True, condition
+        else:
+            # IP is behaving — reset its strike counter
+            self._strikes[ip] = 0
+
         return False, ""
 
     def check_global(self, mean: float, std: float) -> tuple[bool, str]:
